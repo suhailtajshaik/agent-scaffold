@@ -104,14 +104,14 @@ export async function runAgent({ agent, sessionId, userMessage, onChunk = null }
         { streamMode: "values" }
       );
 
-      let lastAIMessage = null;
+      let allStreamMessages = [];
 
       for await (const chunk of stream) {
+        allStreamMessages = chunk.messages;
         const last = chunk.messages.at(-1);
 
         if (last?.constructor?.name === "AIMessage" || last?._getType?.() === "ai") {
           if (last.tool_calls?.length > 0) {
-            // Tool call happening
             for (const tc of last.tool_calls) {
               toolCallsUsed.push(tc.name);
               onChunk({ type: "tool_call", toolName: tc.name, args: tc.args });
@@ -125,11 +125,14 @@ export async function runAgent({ agent, sessionId, userMessage, onChunk = null }
               onChunk({ type: "text", text });
             }
           }
-          lastAIMessage = last;
         } else if (last?.constructor?.name === "ToolMessage" || last?._getType?.() === "tool") {
           onChunk({ type: "tool_result", toolName: last.name, result: last.content });
         }
       }
+
+      // Persist full message chain from stream
+      const generatedMessages = allStreamMessages.slice(inputMessages.length);
+      sessionStore.appendMessages(sessionId, [newUserMessage, ...generatedMessages]);
     } else {
       // ── Non-Streaming Mode ─────────────────────────────────────────────────
       const result = await agent.invoke({ messages: inputMessages });
@@ -145,13 +148,11 @@ export async function runAgent({ agent, sessionId, userMessage, onChunk = null }
           toolCallsUsed.push(...msg.tool_calls.map((tc) => tc.name));
         }
       }
-    }
 
-    // Persist to session memory
-    sessionStore.appendMessages(sessionId, [
-      newUserMessage,
-      new AIMessage(finalText),
-    ]);
+      // Persist full message chain (tool calls + results + final text)
+      const generatedMessages = result.messages.slice(inputMessages.length);
+      sessionStore.appendMessages(sessionId, [newUserMessage, ...generatedMessages]);
+    }
 
     const duration = Date.now() - startTime;
     logger.info(`Agent completed | session=${sessionId} | ${duration}ms | tools=[${toolCallsUsed.join(",")}]`);

@@ -3,7 +3,7 @@
 import { logger } from "../config/logger.js";
 
 const sessions = new Map();
-const MAX_MESSAGES_PER_SESSION = 50;
+const MAX_MESSAGES_PER_SESSION = 100;
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export const sessionStore = {
@@ -34,12 +34,25 @@ export const sessionStore = {
 
     // Keep only the last N messages to avoid token overflow
     if (session.messages.length > MAX_MESSAGES_PER_SESSION) {
-      // Always keep system message if present at index 0
-      const hasSystem = session.messages[0]?.role === "system";
-      const keep = hasSystem
-        ? [session.messages[0], ...session.messages.slice(-(MAX_MESSAGES_PER_SESSION - 1))]
-        : session.messages.slice(-MAX_MESSAGES_PER_SESSION);
-      session.messages = keep;
+      const hasSystem = session.messages[0]?._getType?.() === "system"
+        || session.messages[0]?.role === "system";
+      const startIdx = hasSystem ? 1 : 0;
+
+      // Find a safe truncation point — never cut inside a tool call/result pair
+      let cutIndex = session.messages.length - MAX_MESSAGES_PER_SESSION;
+      if (cutIndex <= startIdx) return;
+
+      // Walk forward to the nearest HumanMessage boundary
+      while (cutIndex < session.messages.length) {
+        const msgType = session.messages[cutIndex]._getType?.()
+          || session.messages[cutIndex]?.role;
+        if (msgType === "human") break;
+        cutIndex++;
+      }
+
+      session.messages = hasSystem
+        ? [session.messages[0], ...session.messages.slice(cutIndex)]
+        : session.messages.slice(cutIndex);
     }
   },
 

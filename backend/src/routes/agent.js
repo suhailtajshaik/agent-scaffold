@@ -108,10 +108,17 @@ router.get("/tools", (req, res) => {
 // ── GET /api/agent/history/:sessionId ────────────────────────────────────────
 router.get("/history/:sessionId", (req, res) => {
   const messages = sessionStore.getMessages(req.params.sessionId);
-  const formatted = messages.map((m) => ({
-    role: m._getType?.() || m.constructor?.name?.replace("Message", "").toLowerCase() || "unknown",
-    content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
-  }));
+  const formatted = messages.map((m) => {
+    const role = m._getType?.() || m.constructor?.name?.replace("Message", "").toLowerCase() || "unknown";
+    const entry = {
+      role,
+      content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+    };
+    if (m.tool_calls?.length) entry.tool_calls = m.tool_calls;
+    if (m.tool_call_id) entry.tool_call_id = m.tool_call_id;
+    if (role === "tool" && m.name) entry.tool_name = m.name;
+    return entry;
+  });
   res.json({ sessionId: req.params.sessionId, messages: formatted });
 });
 
