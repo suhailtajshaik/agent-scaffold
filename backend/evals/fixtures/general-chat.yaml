@@ -1,0 +1,10 @@
+name: "General conversation without tools"
+description: "Agent responds to general questions without using tools"
+turns:
+  - user: "Hello, how are you?"
+    assertions:
+      - type: response_not_empty
+      - type: no_tool_used
+        tool: calculator
+      - type: no_tool_used
+        tool: get_current_datetime

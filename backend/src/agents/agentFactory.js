@@ -5,8 +5,8 @@ import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { HumanMessage, AIMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { config } from "../config/index.js";
 import { logger } from "../config/logger.js";
-import { sessionStore } from "../memory/sessionStore.js";
-import { ALL_TOOLS } from "../tools/index.js";
+import { sessionStore } from "../memory/index.js";
+import { getAllTools } from "../tools/index.js";
 
 /**
  * Agent Factory
@@ -19,19 +19,21 @@ import { ALL_TOOLS } from "../tools/index.js";
  */
 export function createAgent({
   systemPrompt = null,
-  tools = ALL_TOOLS,
+  tools = null,
   beforeModel = null,
   afterModel = null,
 } = {}) {
+  const resolvedTools = tools ?? getAllTools();
+
   // Bind tools to the LLM
   const llm = new ChatAnthropic({
     apiKey: config.anthropicApiKey,
     model: config.model,
     temperature: config.temperature,
     maxTokens: config.maxTokens,
-  }).bindTools(tools);
+  }).bindTools(resolvedTools);
 
-  const toolNode = new ToolNode(tools);
+  const toolNode = new ToolNode(resolvedTools);
 
   // ── Agent Node ─────────────────────────────────────────────────────────────
   async function agentNode(state) {
@@ -75,7 +77,7 @@ export function createAgent({
     .addEdge("tools", "agent");
 
   const compiled = graph.compile();
-  logger.info(`Agent compiled with ${tools.length} tools`);
+  logger.info(`Agent compiled with ${resolvedTools.length} tools`);
 
   return compiled;
 }
@@ -87,7 +89,7 @@ export async function runAgent({ agent, sessionId, userMessage, onChunk = null }
   const startTime = Date.now();
 
   // Load session history
-  const history = sessionStore.getMessages(sessionId);
+  const history = await sessionStore.getMessages(sessionId);
   const newUserMessage = new HumanMessage(userMessage);
   const inputMessages = [...history, newUserMessage];
 
@@ -132,7 +134,7 @@ export async function runAgent({ agent, sessionId, userMessage, onChunk = null }
 
       // Persist full message chain from stream
       const generatedMessages = allStreamMessages.slice(inputMessages.length);
-      sessionStore.appendMessages(sessionId, [newUserMessage, ...generatedMessages]);
+      await sessionStore.appendMessages(sessionId, [newUserMessage, ...generatedMessages]);
     } else {
       // ── Non-Streaming Mode ─────────────────────────────────────────────────
       const result = await agent.invoke({ messages: inputMessages });
@@ -151,7 +153,7 @@ export async function runAgent({ agent, sessionId, userMessage, onChunk = null }
 
       // Persist full message chain (tool calls + results + final text)
       const generatedMessages = result.messages.slice(inputMessages.length);
-      sessionStore.appendMessages(sessionId, [newUserMessage, ...generatedMessages]);
+      await sessionStore.appendMessages(sessionId, [newUserMessage, ...generatedMessages]);
     }
 
     const duration = Date.now() - startTime;

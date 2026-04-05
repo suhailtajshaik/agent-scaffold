@@ -1,0 +1,14 @@
+name: "Calculator tool usage"
+description: "Agent uses calculator for arithmetic questions"
+turns:
+  - user: "What is 42 * 17?"
+    assertions:
+      - type: tool_used
+        tool: calculator
+      - type: text_contains
+        value: "714"
+  - user: "Now divide that result by 3"
+    assertions:
+      - type: tool_used
+        tool: calculator
+      - type: response_not_empty

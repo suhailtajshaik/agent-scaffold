@@ -102,18 +102,31 @@ export const dataFormatterTool = tool(
 );
 
 // ─── Tool Registry ──────────────────────────────────────────────────────────
-export const ALL_TOOLS = [
+const LOCAL_TOOLS = [
   getCurrentDateTimeTool,
   calculatorTool,
   dataFormatterTool,
 ];
 
+let _mcpTools = [];
+
+export function setMCPTools(tools) {
+  _mcpTools = tools;
+}
+
+export function getAllTools() {
+  return [...LOCAL_TOOLS, ..._mcpTools];
+}
+
+// Keep ALL_TOOLS as alias for backward compat during transition
+export const ALL_TOOLS = LOCAL_TOOLS;
+
 export function getToolByName(name) {
-  return ALL_TOOLS.find((t) => t.name === name);
+  return getAllTools().find((t) => t.name === name);
 }
 
 export function getToolsInfo() {
-  return ALL_TOOLS.map((t) => ({
+  return getAllTools().map((t) => ({
     name: t.name,
     description: t.description,
   }));

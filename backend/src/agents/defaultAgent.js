@@ -1,14 +1,16 @@
 // src/agents/defaultAgent.js
 import { createAgent } from "./agentFactory.js";
-import { ALL_TOOLS } from "../tools/index.js";
+import { getAllTools } from "../tools/index.js";
+import { config } from "../config/index.js";
+import { logger } from "../config/logger.js";
 
-const SYSTEM_PROMPT = `You are an intelligent enterprise AI assistant. You are helpful, precise, and professional.
+export const SYSTEM_PROMPT = `You are an intelligent enterprise AI assistant. You are helpful, precise, and professional.
 
 You have access to the following tools:
 - get_current_datetime: Get current date/time in any timezone
 - calculator: Perform mathematical calculations
-- web_search: Search for information (currently mocked — will use real search in production)
 - data_formatter: Format data as JSON, markdown table, or CSV
+- get_state / set_state / delete_state: Manage persistent state across session, user, and app scopes
 
 Guidelines:
 - Always use tools when they can provide accurate, current information
@@ -22,12 +24,30 @@ You are running as a scaffold agent. Developers will extend you by adding domain
 // Singleton compiled agent — shared across all requests
 let _agent = null;
 
-export function getDefaultAgent() {
+export async function getDefaultAgent() {
   if (!_agent) {
-    _agent = createAgent({
-      systemPrompt: SYSTEM_PROMPT,
-      tools: ALL_TOOLS,
-    });
+    if (config.multiAgentEnabled) {
+      // Dynamic imports avoid circular dependency issues at module load time
+      const { createSupervisorAgent } = await import("./supervisorAgent.js");
+      const { registerAgent } = await import("./agentRegistry.js");
+      const { researchAgentConfig } = await import("./specialists/researchAgent.js");
+      const { creativeAgentConfig } = await import("./specialists/creativeAgent.js");
+      const { codeAgentConfig } = await import("./specialists/codeAgent.js");
+
+      registerAgent(researchAgentConfig.name, researchAgentConfig);
+      registerAgent(creativeAgentConfig.name, creativeAgentConfig);
+      registerAgent(codeAgentConfig.name, codeAgentConfig);
+
+      _agent = createSupervisorAgent();
+      logger.info("Multi-agent supervisor initialized");
+    } else {
+      _agent = createAgent({ systemPrompt: SYSTEM_PROMPT, tools: getAllTools() });
+    }
   }
   return _agent;
+}
+
+// Call this after MCP tools are loaded to rebuild the agent
+export function resetDefaultAgent() {
+  _agent = null;
 }

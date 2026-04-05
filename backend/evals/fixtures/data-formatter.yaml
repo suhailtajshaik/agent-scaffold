@@ -1,0 +1,8 @@
+name: "Data formatter tool usage"
+description: "Agent uses data formatter for data formatting requests"
+turns:
+  - user: "Format this data as a markdown table: [{\"name\": \"Alice\", \"age\": 30}, {\"name\": \"Bob\", \"age\": 25}]"
+    assertions:
+      - type: tool_used
+        tool: data_formatter
+      - type: response_not_empty

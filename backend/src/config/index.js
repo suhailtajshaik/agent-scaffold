@@ -10,6 +10,8 @@ export const config = {
   maxTokens: parseInt(process.env.MAX_TOKENS || "4096"),
   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3000",
   nodeEnv: process.env.NODE_ENV || "development",
+  redisUrl: process.env.REDIS_URL || null,
+  multiAgentEnabled: process.env.MULTI_AGENT_ENABLED === "true",
 };
 
 export function validateConfig() {

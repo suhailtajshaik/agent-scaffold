@@ -8,6 +8,10 @@ import { logger } from "./config/logger.js";
 import { apiRateLimiter, requestLogger, errorHandler } from "./middleware/index.js";
 import agentRoutes from "./routes/agent.js";
 import healthRoutes from "./routes/health.js";
+import { loadMCPConfig } from "./config/mcp.config.js";
+import { initMCPTools, shutdownMCP } from "./tools/mcpManager.js";
+import { setMCPTools } from "./tools/index.js";
+import { resetDefaultAgent } from "./agents/defaultAgent.js";
 
 // Validate environment before starting
 validateConfig();
@@ -40,15 +44,36 @@ app.use((req, res) => {
 // ── Error Handler ─────────────────────────────────────────────────────────────
 app.use(errorHandler);
 
+// ── Graceful Shutdown ─────────────────────────────────────────────────────────
+async function shutdown(signal) {
+  logger.info(`Received ${signal}, shutting down gracefully`);
+  await shutdownMCP();
+  process.exit(0);
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+
 // ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(config.port, () => {
-  logger.info(`╔═══════════════════════════════════════╗`);
-  logger.info(`║     Agent Scaffold Backend Started     ║`);
-  logger.info(`╠═══════════════════════════════════════╣`);
-  logger.info(`║  Port    : ${config.port}                        ║`);
-  logger.info(`║  Model   : ${config.model}  ║`);
-  logger.info(`║  Env     : ${config.nodeEnv}               ║`);
-  logger.info(`╚═══════════════════════════════════════╝`);
-});
+(async () => {
+  // Initialize MCP tools before starting the server
+  const mcpConfig = loadMCPConfig();
+  const mcpTools = await initMCPTools(mcpConfig);
+
+  if (mcpTools.length > 0) {
+    setMCPTools(mcpTools);
+    resetDefaultAgent();
+  }
+
+  app.listen(config.port, () => {
+    logger.info(`╔═══════════════════════════════════════╗`);
+    logger.info(`║     Agent Scaffold Backend Started     ║`);
+    logger.info(`╠═══════════════════════════════════════╣`);
+    logger.info(`║  Port    : ${config.port}                        ║`);
+    logger.info(`║  Model   : ${config.model}  ║`);
+    logger.info(`║  Env     : ${config.nodeEnv}               ║`);
+    logger.info(`╚═══════════════════════════════════════╝`);
+  });
+})();
 
 export default app;

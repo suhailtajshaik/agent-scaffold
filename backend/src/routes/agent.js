@@ -1,18 +1,39 @@
 // src/routes/agent.js
 import { Router } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { getDefaultAgent } from "../agents/defaultAgent.js";
-import { runAgent } from "../agents/agentFactory.js";
-import { sessionStore } from "../memory/sessionStore.js";
-import { sanitizeInput } from "../middleware/index.js";
-import { getToolsInfo } from "../tools/index.js";
+import { SYSTEM_PROMPT } from "../agents/defaultAgent.js";
+import { listAgents } from "../agents/agentRegistry.js";
+import { createAgent, runAgent } from "../agents/agentFactory.js";
+import { sessionStore, stateStore } from "../memory/index.js";
+import { sanitizeInput, extractUserId } from "../middleware/index.js";
+import { getAllTools, getToolsInfo } from "../tools/index.js";
+import { createStateTools } from "../tools/stateTools.js";
 import { logger } from "../config/logger.js";
 
 const router = Router();
 
-// ── POST /api/agent/chat ──────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
+/**
+ * Build an agent for the current request.
+ * When userId or sessionId is available, state tools are included so the
+ * agent can read/write scoped state.  The compilation is fast (< 5 ms) so
+ * per-request creation is acceptable for a scaffold.
+ *
+ * @param {string} sessionId
+ * @param {string|null} userId
+ * @returns {object} compiled LangGraph agent
+ */
+function buildRequestAgent(sessionId, userId) {
+  const stateTools = createStateTools({ sessionId, userId });
+  return createAgent({
+    systemPrompt: SYSTEM_PROMPT,
+    tools: [...getAllTools(), ...stateTools],
+  });
+}
+
+// ── POST /api/agent/chat ──────────────────────────────────────────────────
 // Standard (non-streaming) chat endpoint
-router.post("/chat", sanitizeInput, async (req, res) => {
+router.post("/chat", sanitizeInput, extractUserId, async (req, res) => {
   const { message, sessionId: clientSessionId } = req.body;
 
   if (!message?.trim()) {
@@ -22,7 +43,7 @@ router.post("/chat", sanitizeInput, async (req, res) => {
   const sessionId = clientSessionId || uuidv4();
 
   try {
-    const agent = getDefaultAgent();
+    const agent = buildRequestAgent(sessionId, req.userId);
     const result = await runAgent({ agent, sessionId, userMessage: message });
 
     res.json({
@@ -37,9 +58,9 @@ router.post("/chat", sanitizeInput, async (req, res) => {
   }
 });
 
-// ── POST /api/agent/stream ────────────────────────────────────────────────────
+// ── POST /api/agent/stream ────────────────────────────────────────────────
 // Server-Sent Events streaming endpoint
-router.post("/stream", sanitizeInput, async (req, res) => {
+router.post("/stream", sanitizeInput, extractUserId, async (req, res) => {
   const { message, sessionId: clientSessionId } = req.body;
 
   if (!message?.trim()) {
@@ -63,7 +84,7 @@ router.post("/stream", sanitizeInput, async (req, res) => {
   send("session", { sessionId });
 
   try {
-    const agent = getDefaultAgent();
+    const agent = buildRequestAgent(sessionId, req.userId);
 
     await runAgent({
       agent,
@@ -89,30 +110,41 @@ router.post("/stream", sanitizeInput, async (req, res) => {
   }
 });
 
-// ── GET /api/agent/sessions ───────────────────────────────────────────────────
-router.get("/sessions", (req, res) => {
-  res.json({ sessions: sessionStore.listSessions() });
+// ── GET /api/agent/sessions ───────────────────────────────────────────────
+router.get("/sessions", async (req, res) => {
+  res.json({ sessions: await sessionStore.listSessions() });
 });
 
-// ── DELETE /api/agent/sessions/:id ───────────────────────────────────────────
-router.delete("/sessions/:id", (req, res) => {
-  sessionStore.clearSession(req.params.id);
+// ── DELETE /api/agent/sessions/:id ───────────────────────────────────────
+router.delete("/sessions/:id", async (req, res) => {
+  await sessionStore.clearSession(req.params.id);
   res.json({ cleared: true, sessionId: req.params.id });
 });
 
-// ── GET /api/agent/tools ──────────────────────────────────────────────────────
+// ── GET /api/agent/tools ──────────────────────────────────────────────────
 router.get("/tools", (req, res) => {
   res.json({ tools: getToolsInfo() });
 });
 
-// ── GET /api/agent/history/:sessionId ────────────────────────────────────────
-router.get("/history/:sessionId", (req, res) => {
-  const messages = sessionStore.getMessages(req.params.sessionId);
+// ── GET /api/agent/agents ─────────────────────────────────────────────────
+// Returns the list of registered specialist agents (non-empty only when
+// MULTI_AGENT_ENABLED=true and the supervisor has been initialised).
+router.get("/agents", (req, res) => {
+  res.json({ agents: listAgents() });
+});
+
+// ── GET /api/agent/history/:sessionId ────────────────────────────────────
+router.get("/history/:sessionId", async (req, res) => {
+  const messages = await sessionStore.getMessages(req.params.sessionId);
   const formatted = messages.map((m) => {
-    const role = m._getType?.() || m.constructor?.name?.replace("Message", "").toLowerCase() || "unknown";
+    const role =
+      m._getType?.() ||
+      m.constructor?.name?.replace("Message", "").toLowerCase() ||
+      "unknown";
     const entry = {
       role,
-      content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+      content:
+        typeof m.content === "string" ? m.content : JSON.stringify(m.content),
     };
     if (m.tool_calls?.length) entry.tool_calls = m.tool_calls;
     if (m.tool_call_id) entry.tool_call_id = m.tool_call_id;
@@ -120,6 +152,50 @@ router.get("/history/:sessionId", (req, res) => {
     return entry;
   });
   res.json({ sessionId: req.params.sessionId, messages: formatted });
+});
+
+// ── GET /api/agent/state/:scope/:scopeId? ────────────────────────────────
+// Direct REST access to scoped state (no agent required).
+//
+// Examples:
+//   GET /api/agent/state/app          — all app-level state
+//   GET /api/agent/state/session/:id  — all state for a session
+//   GET /api/agent/state/user          — all state for the authenticated user
+//                                        (requires x-user-id header)
+router.get("/state/:scope/:scopeId?", extractUserId, async (req, res) => {
+  const { scope, scopeId: paramScopeId } = req.params;
+
+  if (!["session", "user", "app"].includes(scope)) {
+    return res.status(400).json({
+      error: "scope must be one of: session, user, app",
+    });
+  }
+
+  let scopeId;
+  if (scope === "session") {
+    scopeId = paramScopeId;
+    if (!scopeId) {
+      return res.status(400).json({ error: "scopeId (session ID) is required for session scope" });
+    }
+  } else if (scope === "user") {
+    scopeId = req.userId;
+    if (!scopeId) {
+      return res.status(400).json({
+        error: "x-user-id header is required for user scope",
+      });
+    }
+  } else {
+    // app scope — no scopeId needed
+    scopeId = null;
+  }
+
+  try {
+    const state = await stateStore.getAll(scope, scopeId);
+    res.json({ scope, scopeId: scopeId ?? "global", state });
+  } catch (err) {
+    logger.error("State fetch error", { scope, scopeId, error: err.message });
+    res.status(500).json({ error: "Failed to fetch state", detail: err.message });
+  }
 });
 
 export default router;

@@ -1,0 +1,8 @@
+name: "DateTime tool usage"
+description: "Agent uses datetime tool when asked about time"
+turns:
+  - user: "What time is it right now in UTC?"
+    assertions:
+      - type: tool_used
+        tool: get_current_datetime
+      - type: response_not_empty

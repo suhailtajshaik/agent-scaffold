@@ -52,6 +52,16 @@ export function sanitizeInput(req, res, next) {
 }
 
 /**
+ * User identity extractor
+ * Reads the x-user-id header and attaches it to req.userId.
+ * Swap this out for JWT validation in production.
+ */
+export function extractUserId(req, res, next) {
+  req.userId = req.headers["x-user-id"] || null;
+  next();
+}
+
+/**
  * Error handler
  */
 export function errorHandler(err, req, res, next) {
