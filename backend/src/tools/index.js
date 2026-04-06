@@ -3,6 +3,7 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { logger } from "../config/logger.js";
 import { webSearchTool } from "./webSearch.js";
+import { deepResearchTool } from "./deepResearch.js";
 
 /**
  * SCAFFOLD TOOLS
@@ -110,6 +111,7 @@ const LOCAL_TOOLS = [
   getCurrentDateTimeTool,
   calculatorTool,
   webSearchTool,
+  deepResearchTool,
   dataFormatterTool,
 ];
 

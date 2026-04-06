@@ -10,6 +10,7 @@ You have access to the following tools:
 - get_current_datetime: Get current date/time in any timezone
 - calculator: Perform mathematical calculations
 - web_search: Search the web for current information on any topic
+- deep_research: Perform in-depth research by searching and extracting full content from multiple sources. Use for complex questions needing thorough analysis.
 - data_formatter: Format data as JSON, markdown table, or CSV
 - get_state / set_state / delete_state: Manage persistent state across session, user, and app scopes
 
