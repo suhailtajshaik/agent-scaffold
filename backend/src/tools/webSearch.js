@@ -18,17 +18,17 @@ async function getTavilyClient() {
 
 // ─── Tool: Web Search ──────────────────────────────────────────────────────
 export const webSearchTool = tool(
-  async ({ query, maxResults, searchDepth, topic, timeRange, includeDomains }) => {
+  async ({ query, maxResults, searchDepth, topic, timeRange, includeDomains, includeAnswer }) => {
     try {
       const client = await getTavilyClient();
 
-      const opts = {
-        maxResults: maxResults || 5,
-        searchDepth: searchDepth || "basic",
-        topic: topic || "general",
-      };
+      const opts = {};
+      if (maxResults !== undefined) opts.maxResults = maxResults;
+      if (searchDepth) opts.searchDepth = searchDepth;
+      if (topic) opts.topic = topic;
       if (timeRange) opts.timeRange = timeRange;
       if (includeDomains?.length) opts.includeDomains = includeDomains;
+      if (includeAnswer) opts.includeAnswer = true;
 
       const response = await client.search(query, opts);
 
@@ -41,12 +41,9 @@ export const webSearchTool = tool(
 
       logger.info(`Web search: "${query}" → ${results.length} results`);
 
-      return JSON.stringify({
-        query,
-        results,
-        answer: response.answer || null,
-        responseTime: response.responseTime,
-      });
+      const output = { query, results, responseTime: response.responseTime };
+      if (response.answer) output.answer = response.answer;
+      return JSON.stringify(output);
     } catch (err) {
       logger.error("Web search failed", { error: err.message });
       return JSON.stringify({ error: err.message });
@@ -58,33 +55,38 @@ export const webSearchTool = tool(
       "Search the web for current information on any topic. Returns titles, URLs, and content snippets from relevant web pages. Use specific queries for best results.",
     schema: z.object({
       query: z.string().describe("The search query — be specific for better results"),
-      maxResults: z.number().int().min(1).max(10).optional()
-        .describe("Maximum number of results (default: 5)"),
+      maxResults: z.number().int().min(1).max(20).optional()
+        .describe("Maximum number of results to return"),
       searchDepth: z.enum(["basic", "advanced"]).optional()
-        .describe("'basic' for quick results, 'advanced' for thorough search (default: basic)"),
+        .describe("'basic' for quick results, 'advanced' for thorough search"),
       topic: z.enum(["general", "news", "finance"]).optional()
-        .describe("Topic category to focus the search (default: general)"),
+        .describe("Topic category to focus the search"),
       timeRange: z.enum(["day", "week", "month", "year"]).optional()
-        .describe("Limit results to a time range (e.g., 'week' for past week)"),
+        .describe("Limit results to a time range"),
       includeDomains: z.array(z.string()).optional()
-        .describe("Only include results from these domains (e.g., ['techcrunch.com', 'reuters.com'])"),
+        .describe("Only include results from these domains (e.g., ['techcrunch.com'])"),
+      includeAnswer: z.boolean().optional()
+        .describe("Whether to include an AI-generated answer summary"),
     }),
   }
 );
 
 // ─── Tool: Web Extract ─────────────────────────────────────────────────────
 export const webExtractTool = tool(
-  async ({ urls }) => {
+  async ({ urls, extractDepth }) => {
     try {
       const client = await getTavilyClient();
 
       logger.info(`Web extract: ${urls.length} URL(s)`);
 
-      const response = await client.extract(urls);
+      const opts = {};
+      if (extractDepth) opts.extractDepth = extractDepth;
+
+      const response = await client.extract(urls, opts);
 
       const results = response.results.map((r) => ({
         url: r.url,
-        content: r.rawContent?.slice(0, 5000) || "",
+        content: r.rawContent || "",
       }));
 
       return JSON.stringify({
@@ -104,29 +106,32 @@ export const webExtractTool = tool(
     schema: z.object({
       urls: z.array(z.string()).min(1).max(20)
         .describe("List of URLs to extract content from"),
+      extractDepth: z.enum(["basic", "advanced"]).optional()
+        .describe("'advanced' for complex pages with dynamic content, tables, or embedded media"),
     }),
   }
 );
 
 // ─── Tool: Web Crawl ───────────────────────────────────────────────────────
 export const webCrawlTool = tool(
-  async ({ url, maxDepth, maxBreadth, instructions }) => {
+  async ({ url, maxDepth, maxBreadth, instructions, selectPaths, excludePaths }) => {
     try {
       const client = await getTavilyClient();
 
-      logger.info(`Web crawl: ${url} (depth: ${maxDepth || 2})`);
+      logger.info(`Web crawl: ${url}`);
 
-      const opts = {
-        maxDepth: maxDepth || 2,
-        maxBreadth: maxBreadth || 5,
-      };
+      const opts = {};
+      if (maxDepth !== undefined) opts.maxDepth = maxDepth;
+      if (maxBreadth !== undefined) opts.maxBreadth = maxBreadth;
       if (instructions) opts.instructions = instructions;
+      if (selectPaths?.length) opts.selectPaths = selectPaths;
+      if (excludePaths?.length) opts.excludePaths = excludePaths;
 
       const response = await client.crawl(url, opts);
 
       const results = response.results.map((r) => ({
         url: r.url,
-        content: r.rawContent?.slice(0, 3000) || "",
+        content: r.rawContent || "",
       }));
 
       logger.info(`Web crawl complete: ${results.length} pages from ${url}`);
@@ -137,23 +142,26 @@ export const webCrawlTool = tool(
         totalPages: results.length,
       });
     } catch (err) {
-      // Crawl may not be available in all Tavily plans
       logger.error("Web crawl failed", { error: err.message });
-      return JSON.stringify({ error: `Web crawl failed: ${err.message}. Note: crawl may require a Tavily paid plan.` });
+      return JSON.stringify({ error: `Web crawl failed: ${err.message}` });
     }
   },
   {
     name: "web_crawl",
     description:
-      "Crawl a website to explore its structure and gather content from linked pages. Use this for deep research on a specific website — e.g., exploring documentation, gathering all product pages, or reading all blog posts from a site. Start with shallow crawls and increase depth as needed.",
+      "Crawl a website to explore its structure and gather content from linked pages. Use this for deep research on a specific website — e.g., exploring documentation, gathering all product pages, or reading all blog posts from a site.",
     schema: z.object({
       url: z.string().describe("The base URL to start crawling from"),
       maxDepth: z.number().int().min(1).max(5).optional()
-        .describe("How deep to follow links (default: 2)"),
+        .describe("How deep to follow links"),
       maxBreadth: z.number().int().min(1).max(20).optional()
-        .describe("How many links to follow per page (default: 5)"),
+        .describe("How many links to follow per page"),
       instructions: z.string().optional()
         .describe("Natural language instructions to guide the crawl (e.g., 'find only pricing pages')"),
+      selectPaths: z.array(z.string()).optional()
+        .describe("Only crawl pages matching these URL path patterns"),
+      excludePaths: z.array(z.string()).optional()
+        .describe("Skip pages matching these URL path patterns"),
     }),
   }
 );
