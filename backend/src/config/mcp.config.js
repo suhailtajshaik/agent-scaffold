@@ -1,5 +1,5 @@
 // src/config/mcp.config.js
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { logger } from "./logger.js";
 
@@ -27,4 +27,15 @@ export function loadMCPConfig() {
   }
 
   return {};
+}
+
+export function saveMCPConfig(serverConfig) {
+  const configPath = resolve(process.cwd(), "mcp.json");
+  try {
+    writeFileSync(configPath, JSON.stringify(serverConfig, null, 2), "utf-8");
+    logger.info("MCP config saved", { path: configPath });
+  } catch (e) {
+    logger.error("Failed to save mcp.json", { error: e.message, path: configPath });
+    throw e;
+  }
 }

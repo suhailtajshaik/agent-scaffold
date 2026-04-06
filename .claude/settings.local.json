@@ -6,7 +6,14 @@
       "WebFetch(domain:adk.dev)",
       "WebFetch(domain:www.zenml.io)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:developers.googleblog.com)"
+      "WebFetch(domain:developers.googleblog.com)",
+      "Bash(npm install:*)",
+      "Bash(node --input-type=module --eval ':*)",
+      "Bash(npm view:*)",
+      "Bash(node --input-type=module)",
+      "Bash(node --check src/memory/stateStore.js src/tools/stateTools.js src/middleware/index.js src/agents/defaultAgent.js)",
+      "Bash(node --check src/memory/stateStore.js src/memory/index.js src/tools/stateTools.js src/middleware/index.js src/agents/defaultAgent.js src/routes/agent.js)",
+      "Bash(git add:*)"
     ]
   }
 }

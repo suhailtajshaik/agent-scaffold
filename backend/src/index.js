@@ -8,10 +8,9 @@ import { logger } from "./config/logger.js";
 import { apiRateLimiter, requestLogger, errorHandler } from "./middleware/index.js";
 import agentRoutes from "./routes/agent.js";
 import healthRoutes from "./routes/health.js";
+import mcpRoutes from "./routes/mcp.js";
 import { loadMCPConfig } from "./config/mcp.config.js";
 import { initMCPTools, shutdownMCP } from "./tools/mcpManager.js";
-import { setMCPTools } from "./tools/index.js";
-import { resetDefaultAgent } from "./agents/defaultAgent.js";
 
 // Validate environment before starting
 validateConfig();
@@ -35,6 +34,7 @@ app.use("/api/", apiRateLimiter);
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/health", healthRoutes);
 app.use("/api/agent", agentRoutes);
+app.use("/api/mcp", mcpRoutes);
 
 // ── 404 ───────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
@@ -56,14 +56,10 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 (async () => {
-  // Initialize MCP tools before starting the server
+  // Initialize MCP tools before starting the server.
+  // initMCPTools populates the shared tool registry and resets the agent internally.
   const mcpConfig = loadMCPConfig();
-  const mcpTools = await initMCPTools(mcpConfig);
-
-  if (mcpTools.length > 0) {
-    setMCPTools(mcpTools);
-    resetDefaultAgent();
-  }
+  await initMCPTools(mcpConfig);
 
   app.listen(config.port, () => {
     logger.info(`╔═══════════════════════════════════════╗`);

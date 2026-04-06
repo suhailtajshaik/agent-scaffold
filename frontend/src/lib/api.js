@@ -101,4 +101,53 @@ export const api = {
     const res = await fetch("/health");
     return res.json();
   },
+
+  // ─── MCP Server Management ─────────────────────────────────────────────────
+
+  async getMCPServers() {
+    const res = await fetch("/api/mcp/servers");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  async addMCPServer({ name, config }) {
+    const res = await fetch("/api/mcp/servers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, config }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
+  async removeMCPServer(name) {
+    const res = await fetch(`/api/mcp/servers/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
+  async reconnectMCPServer(name) {
+    const res = await fetch(`/api/mcp/servers/${encodeURIComponent(name)}/reconnect`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
+  async getMCPTools() {
+    const res = await fetch("/api/mcp/tools");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
 };
