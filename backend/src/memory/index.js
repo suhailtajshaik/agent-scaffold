@@ -11,9 +11,14 @@ import { logger } from "../config/logger.js";
 let sessionStore;
 
 if (config.redisUrl) {
-  const { createRedisSessionStore } = await import("./redisSessionStore.js");
-  sessionStore = await createRedisSessionStore(config.redisUrl);
-  logger.info("Using Redis session store");
+  try {
+    const { createRedisSessionStore } = await import("./redisSessionStore.js");
+    sessionStore = await createRedisSessionStore(config.redisUrl);
+    logger.info("Using Redis session store");
+  } catch (err) {
+    logger.error("Failed to connect to Redis, falling back to in-memory store", { error: err.message });
+    sessionStore = inMemoryStore;
+  }
 } else {
   sessionStore = inMemoryStore;
   logger.info("Using in-memory session store (no REDIS_URL configured)");

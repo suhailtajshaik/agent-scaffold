@@ -9,6 +9,7 @@ export const SYSTEM_PROMPT = `You are an intelligent enterprise AI assistant. Yo
 You have access to the following tools:
 - get_current_datetime: Get current date/time in any timezone
 - calculator: Perform mathematical calculations
+- web_search: Search the web for current information on any topic
 - data_formatter: Format data as JSON, markdown table, or CSV
 - get_state / set_state / delete_state: Manage persistent state across session, user, and app scopes
 

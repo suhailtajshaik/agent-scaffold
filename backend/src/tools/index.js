@@ -2,6 +2,7 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { logger } from "../config/logger.js";
+import { webSearchTool } from "./webSearch.js";
 
 /**
  * SCAFFOLD TOOLS
@@ -52,6 +53,9 @@ export const calculatorTool = tool(
       }
       // Using Function for safe arithmetic (no variable access)
       const result = new Function(`"use strict"; return (${expression})`)();
+      if (!isFinite(result)) {
+        return JSON.stringify({ error: `Result is not finite: ${result}` });
+      }
       logger.debug(`Calculator: ${expression} = ${result}`);
       return JSON.stringify({ expression, result, type: typeof result });
     } catch (err) {
@@ -105,6 +109,7 @@ export const dataFormatterTool = tool(
 const LOCAL_TOOLS = [
   getCurrentDateTimeTool,
   calculatorTool,
+  webSearchTool,
   dataFormatterTool,
 ];
 

@@ -11,6 +11,8 @@ import { logger } from "../config/logger.js";
 
 const router = Router();
 
+const VALID_SERVER_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
+
 // GET /api/mcp/servers — list all servers with their status and tool lists
 router.get("/servers", (req, res) => {
   res.json(getMCPServersStatus());
@@ -20,8 +22,8 @@ router.get("/servers", (req, res) => {
 router.post("/servers", async (req, res) => {
   const { name, config } = req.body;
 
-  if (!name?.trim()) {
-    return res.status(400).json({ error: "name is required" });
+  if (!name?.trim() || !VALID_SERVER_NAME.test(name.trim())) {
+    return res.status(400).json({ error: "name must be 1-64 alphanumeric, dash, or underscore characters" });
   }
   if (!config || typeof config !== "object") {
     return res.status(400).json({ error: "config is required and must be an object" });
@@ -48,6 +50,9 @@ router.post("/servers", async (req, res) => {
 // DELETE /api/mcp/servers/:name — remove a server and trigger hot-reload
 router.delete("/servers/:name", async (req, res) => {
   const { name } = req.params;
+  if (!VALID_SERVER_NAME.test(name)) {
+    return res.status(400).json({ error: "Invalid server name" });
+  }
   try {
     await removeMCPServer(name);
     res.json({ removed: true, name });
@@ -61,6 +66,9 @@ router.delete("/servers/:name", async (req, res) => {
 // POST /api/mcp/servers/:name/reconnect — force-reconnect a specific server
 router.post("/servers/:name/reconnect", async (req, res) => {
   const { name } = req.params;
+  if (!VALID_SERVER_NAME.test(name)) {
+    return res.status(400).json({ error: "Invalid server name" });
+  }
   try {
     await reconnectMCPServer(name);
     res.json(getMCPServersStatus());

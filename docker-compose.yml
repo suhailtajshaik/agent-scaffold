@@ -13,6 +13,9 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
       - CORS_ORIGIN=http://localhost:${FRONTEND_PORT:-3000}
       - REDIS_URL=redis://redis:6379
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+      - MULTI_AGENT_ENABLED=${MULTI_AGENT_ENABLED:-false}
+      - MCP_SERVERS=${MCP_SERVERS:-}
     ports:
       - "${BACKEND_PORT:-3001}:3001"
     depends_on:

@@ -17,6 +17,9 @@ import { runAgent } from "../src/agents/agentFactory.js";
 import { runAssertion } from "./assertions.js";
 import { generateReport } from "./report.js";
 
+// Note: MCP tools are not loaded in the eval runner.
+// Evals test the built-in tool set only.
+
 // ── ANSI helpers ─────────────────────────────────────────────────────────────
 const RESET  = "\x1b[0m";
 const BOLD   = "\x1b[1m";

@@ -63,12 +63,10 @@ async function _doRebuild() {
 
 async function _rebuildClient() {
   if (_rebuildPromise) return _rebuildPromise;
-  _rebuildPromise = _doRebuild();
-  try {
-    await _rebuildPromise;
-  } finally {
+  _rebuildPromise = _doRebuild().finally(() => {
     _rebuildPromise = null;
-  }
+  });
+  return _rebuildPromise;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

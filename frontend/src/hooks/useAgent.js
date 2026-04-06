@@ -9,6 +9,7 @@ export function useAgent() {
   const [sessionId, setSessionId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTools, setActiveTools] = useState([]);
+  const activeToolsRef = useRef([]);
   const streamRef = useRef(null);
 
   const addMessage = useCallback((msg) => {
@@ -73,7 +74,8 @@ export function useAgent() {
               return next;
             });
           } else if (type === "tool_call") {
-            setActiveTools((prev) => [...new Set([...prev, data.toolName])]);
+            activeToolsRef.current = [...new Set([...activeToolsRef.current, data.toolName])];
+            setActiveTools(activeToolsRef.current);
           } else if (type === "tool_result") {
             // Tool finished
           }
@@ -86,13 +88,14 @@ export function useAgent() {
               next[idx] = {
                 ...next[idx],
                 isStreaming: false,
-                toolsUsed: activeTools,
+                toolsUsed: activeToolsRef.current,
               };
             }
             return next;
           });
           setIsLoading(false);
           setActiveTools([]);
+          activeToolsRef.current = [];
           streamRef.current = null;
         },
         onError: (err) => {
@@ -117,7 +120,7 @@ export function useAgent() {
 
       streamRef.current = stream;
     },
-    [sessionId, isLoading, addMessage, activeTools]
+    [sessionId, isLoading, addMessage]
   );
 
   const clearConversation = useCallback(async () => {

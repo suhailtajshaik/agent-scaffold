@@ -6,7 +6,7 @@
 //   - app:     global, shared by all users
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { stateStore } from "../memory/stateStore.js";
+import { stateStore } from "../memory/index.js";
 import { logger } from "../config/logger.js";
 
 /**

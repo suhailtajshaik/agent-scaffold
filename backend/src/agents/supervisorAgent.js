@@ -73,11 +73,11 @@ Only use specialist names from the list above. Always route to the most appropri
       return { messages: [response] };
     };
 
-    function shouldContinue({ messages }) {
+    const shouldContinue = ({ messages }) => {
       const last = messages.at(-1);
       if (last?.tool_calls?.length > 0) return "tools";
       return END;
-    }
+    };
 
     const graph = new StateGraph(MessagesAnnotation)
       .addNode("specialist", specialistNode)

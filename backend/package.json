@@ -13,6 +13,7 @@
     "@langchain/core": "^0.3.37",
     "@langchain/langgraph": "^0.2.50",
     "@langchain/mcp-adapters": "^0.6.0",
+    "@tavily/core": "^0.7.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",

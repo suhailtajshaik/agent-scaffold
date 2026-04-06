@@ -10,7 +10,7 @@ import { HumanMessage, AIMessage, ToolMessage, SystemMessage } from "@langchain/
  */
 export function serializeMessages(messages) {
   return messages.map((m) => ({
-    type: m._getType(),
+    type: typeof m._getType === "function" ? m._getType() : (m.role ?? "human"),
     content: m.content,
     tool_calls: m.tool_calls,
     tool_call_id: m.tool_call_id,

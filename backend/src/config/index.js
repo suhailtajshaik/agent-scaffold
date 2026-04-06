@@ -12,6 +12,7 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || "development",
   redisUrl: process.env.REDIS_URL || null,
   multiAgentEnabled: process.env.MULTI_AGENT_ENABLED === "true",
+  tavilyApiKey: process.env.TAVILY_API_KEY || null,
 };
 
 export function validateConfig() {
