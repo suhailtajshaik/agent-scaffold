@@ -3,6 +3,7 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { logger } from "../config/logger.js";
 import { config } from "../config/index.js";
+import { validateUrl } from "../guardrails/index.js";
 
 /**
  * Helper: lazily create a Tavily client.
@@ -75,6 +76,14 @@ export const webSearchTool = tool(
 export const webExtractTool = tool(
   async ({ urls, extractDepth }) => {
     try {
+      // Validate all URLs before making any API calls
+      for (const url of urls) {
+        const check = validateUrl(url);
+        if (!check.valid) {
+          return JSON.stringify({ error: `URL blocked (${url}): ${check.error}` });
+        }
+      }
+
       const client = await getTavilyClient();
 
       logger.info(`Web extract: ${urls.length} URL(s)`);
@@ -116,6 +125,12 @@ export const webExtractTool = tool(
 export const webCrawlTool = tool(
   async ({ url, maxDepth, maxBreadth, instructions, selectPaths, excludePaths }) => {
     try {
+      // Validate URL before crawling
+      const urlCheck = validateUrl(url);
+      if (!urlCheck.valid) {
+        return JSON.stringify({ error: `URL blocked: ${urlCheck.error}` });
+      }
+
       const client = await getTavilyClient();
 
       logger.info(`Web crawl: ${url}`);

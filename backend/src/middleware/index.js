@@ -1,6 +1,7 @@
 // src/middleware/index.js
 import rateLimit from "express-rate-limit";
 import { logger } from "../config/logger.js";
+import { validateInput } from "../guardrails/index.js";
 
 /**
  * Rate limiter — 60 requests per minute per IP
@@ -26,27 +27,21 @@ export function requestLogger(req, res, next) {
 }
 
 /**
- * Input sanitizer — basic guardrail against prompt injection attempts
+ * Input sanitizer — validates message length, content, and prompt injection
  */
 export function sanitizeInput(req, res, next) {
   const { message } = req.body || {};
-  if (message && typeof message === "string") {
-    // Flag suspicious injection patterns
-    const injectionPatterns = [
-      /ignore (previous|all) instructions/i,
-      /you are now/i,
-      /disregard your (system|previous)/i,
-      /<\|.*\|>/,
-    ];
-    for (const pattern of injectionPatterns) {
-      if (pattern.test(message)) {
-        logger.warn(`Potential prompt injection detected from ${req.ip}`);
-        return res.status(400).json({
-          error: "Invalid input detected",
-          code: "INPUT_REJECTED",
-        });
-      }
+  if (message) {
+    const result = validateInput(message);
+    if (!result.valid) {
+      logger.warn(`Input rejected from ${req.ip}: ${result.error}`);
+      return res.status(400).json({
+        error: result.error,
+        code: result.code || "INPUT_INVALID",
+      });
     }
+    // Use sanitized message
+    req.body.message = result.sanitized;
   }
   next();
 }
