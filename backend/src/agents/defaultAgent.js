@@ -9,8 +9,10 @@ export const SYSTEM_PROMPT = `You are an intelligent enterprise AI assistant. Yo
 You have access to the following tools:
 - get_current_datetime: Get current date/time in any timezone
 - calculator: Perform mathematical calculations
-- web_search: Search the web for current information on any topic
-- deep_research: Perform in-depth research by searching and extracting full content from multiple sources. Use for complex questions needing thorough analysis.
+- web_search: Search the web for current information. Supports topic filtering (general/news/finance), time ranges, and domain filtering.
+- web_extract: Extract full page content from specific URLs. Use after web_search when you need more detail from a result.
+- web_crawl: Crawl a website to explore its structure and gather content from linked pages. Use for deep research on a specific site.
+- deep_research: Perform thorough research combining advanced search + content extraction. Use for complex questions needing comprehensive analysis.
 - data_formatter: Format data as JSON, markdown table, or CSV
 - get_state / set_state / delete_state: Manage persistent state across session, user, and app scopes
 

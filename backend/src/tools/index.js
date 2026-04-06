@@ -2,7 +2,7 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { logger } from "../config/logger.js";
-import { webSearchTool } from "./webSearch.js";
+import { webSearchTool, webExtractTool, webCrawlTool } from "./webSearch.js";
 import { deepResearchTool } from "./deepResearch.js";
 
 /**
@@ -111,6 +111,8 @@ const LOCAL_TOOLS = [
   getCurrentDateTimeTool,
   calculatorTool,
   webSearchTool,
+  webExtractTool,
+  webCrawlTool,
   deepResearchTool,
   dataFormatterTool,
 ];
