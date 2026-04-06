@@ -9,11 +9,15 @@ import { apiRateLimiter, requestLogger, errorHandler } from "./middleware/index.
 import agentRoutes from "./routes/agent.js";
 import healthRoutes from "./routes/health.js";
 import mcpRoutes from "./routes/mcp.js";
-import { loadMCPConfig } from "./config/mcp.config.js";
-import { initMCPTools, shutdownMCP } from "./tools/mcpManager.js";
-
-// Validate environment before starting
-validateConfig();
+import agentCrudRoutes from "./routes/agentCrud.js";
+import agentMcpRoutes from "./routes/agentMcp.js";
+import toolAssignmentRoutes from "./routes/toolAssignment.js";
+import graphRoutes from "./routes/graphRoutes.js";
+import { getLocalToolNames } from "./tools/index.js";
+import { agentStore } from "./agents/agentStore.js";
+import { initGraph, closeGraph } from "./graph/client.js";
+import { initSchema } from "./graph/schema.js";
+import { shutdownAllAgentMCP } from "./tools/perAgentMCP.js";
 
 const app = express();
 
@@ -35,6 +39,34 @@ app.use("/api/", apiRateLimiter);
 app.use("/health", healthRoutes);
 app.use("/api/agent", agentRoutes);
 app.use("/api/mcp", mcpRoutes);
+app.use("/api/agents", agentCrudRoutes);
+app.use("/api/agents", agentMcpRoutes);         // for /:id/mcp/* endpoints
+app.use("/api/agents", toolAssignmentRoutes);    // for /:id/tools endpoints
+app.get("/api/tools/available", (req, res) => {  // available tools (no collision)
+  res.json({ tools: getLocalToolNames() });
+});
+app.use("/api/graph", graphRoutes);
+
+// ── Optional frontend static serving ─────────────────────────────────────────
+if (config.enableUI) {
+  const { default: fs } = await import("fs");
+  const { default: path } = await import("path");
+  const { fileURLToPath } = await import("url");
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const distPath = path.resolve(__dirname, "../../frontend/dist");
+
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.get("*", (req, res, next) => {
+      // Only serve index.html for non-API routes
+      if (req.path.startsWith("/api") || req.path.startsWith("/health")) {
+        return next();
+      }
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+    logger.info(`Frontend static files served from ${distPath}`);
+  }
+}
 
 // ── 404 ───────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
@@ -47,7 +79,8 @@ app.use(errorHandler);
 // ── Graceful Shutdown ─────────────────────────────────────────────────────────
 async function shutdown(signal) {
   logger.info(`Received ${signal}, shutting down gracefully`);
-  await shutdownMCP();
+  await closeGraph();
+  await shutdownAllAgentMCP();
   process.exit(0);
 }
 
@@ -56,10 +89,16 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 (async () => {
-  // Initialize MCP tools before starting the server.
-  // initMCPTools populates the shared tool registry and resets the agent internally.
-  const mcpConfig = loadMCPConfig();
-  await initMCPTools(mcpConfig);
+  validateConfig();
+
+  // Initialize JanusGraph (no-op / fallback when JANUSGRAPH_URL is unset)
+  await initGraph(config.janusgraphUrl);
+
+  // Verify schema / run health-check query
+  await initSchema();
+
+  // Seed the default agent if no agents exist yet
+  await agentStore.seedDefault();
 
   app.listen(config.port, () => {
     logger.info(`╔═══════════════════════════════════════╗`);

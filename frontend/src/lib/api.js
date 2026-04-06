@@ -23,14 +23,14 @@ export const api = {
    * Start a streaming chat — returns an EventSource-like stream
    * onEvent(type, data) is called for each SSE event
    */
-  streamChat({ message, sessionId, onEvent, onDone, onError }) {
+  streamChat({ message, sessionId, agentId, onEvent, onDone, onError }) {
     // Use fetch + ReadableStream for POST-based SSE
     const controller = new AbortController();
 
     fetch(`${BASE}/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, sessionId }),
+      body: JSON.stringify({ message, sessionId, agentId }),
       signal: controller.signal,
     })
       .then(async (res) => {
@@ -148,6 +148,117 @@ export const api = {
   async getMCPTools() {
     const res = await fetch("/api/mcp/tools");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  // ─── Agent CRUD ──────────────────────────────────────────────────────────
+  async listAgents() {
+    const res = await fetch("/api/agents");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  async getAgent(id) {
+    const res = await fetch(`/api/agents/${encodeURIComponent(id)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  async createAgent(data) {
+    const res = await fetch("/api/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
+  async updateAgent(id, data) {
+    const res = await fetch(`/api/agents/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
+  async deleteAgent(id) {
+    const res = await fetch(`/api/agents/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
+  async cloneAgent(id, name) {
+    const res = await fetch(`/api/agents/${encodeURIComponent(id)}/clone`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
+  async getAvailableTools() {
+    const res = await fetch("/api/tools/available");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  async getAgentMCPServers(agentId) {
+    const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/mcp/servers`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  async addAgentMCPServer(agentId, { name, config }) {
+    const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/mcp/servers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, config }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
+  async removeAgentMCPServer(agentId, serverName) {
+    const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/mcp/servers/${encodeURIComponent(serverName)}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
+  async reconnectAgentMCPServer(agentId, serverName) {
+    const res = await fetch(
+      `/api/agents/${encodeURIComponent(agentId)}/mcp/servers/${encodeURIComponent(serverName)}/reconnect`,
+      { method: "POST" }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
     return res.json();
   },
 };

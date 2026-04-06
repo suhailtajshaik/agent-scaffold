@@ -12,7 +12,8 @@ import { v4 as uuidv4 } from "uuid";
 import yaml from "js-yaml";
 
 import { validateConfig } from "../src/config/index.js";
-import { getDefaultAgent } from "../src/agents/defaultAgent.js";
+import { buildRequestAgent } from "../src/agents/agentCompiler.js";
+import { agentStore } from "../src/agents/agentStore.js";
 import { runAgent } from "../src/agents/agentFactory.js";
 import { runAssertion } from "./assertions.js";
 import { generateReport } from "./report.js";
@@ -222,7 +223,9 @@ async function main() {
   // Build agent once — reused across all fixtures
   let agent;
   try {
-    agent = await getDefaultAgent();
+    await agentStore.seedDefault();
+    const { agent: compiledAgent } = await buildRequestAgent(null, uuidv4(), null);
+    agent = compiledAgent;
   } catch (err) {
     console.error(red(`\nFailed to initialize agent: ${err.message}`));
     process.exit(1);

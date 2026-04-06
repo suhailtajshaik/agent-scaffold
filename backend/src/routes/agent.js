@@ -1,40 +1,20 @@
 // src/routes/agent.js
 import { Router } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { SYSTEM_PROMPT } from "../agents/defaultAgent.js";
-import { listAgents } from "../agents/agentRegistry.js";
-import { createAgent, runAgent } from "../agents/agentFactory.js";
+import { buildRequestAgent } from "../agents/agentCompiler.js";
+import { agentStore } from "../agents/agentStore.js";
+import { runAgent } from "../agents/agentFactory.js";
 import { sessionStore, stateStore } from "../memory/index.js";
 import { sanitizeInput, extractUserId } from "../middleware/index.js";
 import { getAllTools, getToolsInfo } from "../tools/index.js";
-import { createStateTools } from "../tools/stateTools.js";
 import { logger } from "../config/logger.js";
 
 const router = Router();
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-/**
- * Build an agent for the current request.
- * When userId or sessionId is available, state tools are included so the
- * agent can read/write scoped state.  The compilation is fast (< 5 ms) so
- * per-request creation is acceptable for a scaffold.
- *
- * @param {string} sessionId
- * @param {string|null} userId
- * @returns {object} compiled LangGraph agent
- */
-function buildRequestAgent(sessionId, userId) {
-  const stateTools = createStateTools({ sessionId, userId });
-  return createAgent({
-    systemPrompt: SYSTEM_PROMPT,
-    tools: [...getAllTools(), ...stateTools],
-  });
-}
-
 // ── POST /api/agent/chat ──────────────────────────────────────────────────
 // Standard (non-streaming) chat endpoint
 router.post("/chat", sanitizeInput, extractUserId, async (req, res) => {
-  const { message, sessionId: clientSessionId } = req.body;
+  const { message, sessionId: clientSessionId, agentId } = req.body;
 
   if (!message?.trim()) {
     return res.status(400).json({ error: "message is required" });
@@ -43,11 +23,13 @@ router.post("/chat", sanitizeInput, extractUserId, async (req, res) => {
   const sessionId = clientSessionId || uuidv4();
 
   try {
-    const agent = buildRequestAgent(sessionId, req.userId);
+    const { agent, config: agentConfig } = await buildRequestAgent(agentId, sessionId, req.userId);
     const result = await runAgent({ agent, sessionId, userMessage: message });
 
     res.json({
       sessionId,
+      agentId: agentConfig.id,
+      agentName: agentConfig.name,
       message: result.text,
       toolsUsed: result.toolsUsed,
       durationMs: result.durationMs,
@@ -61,7 +43,7 @@ router.post("/chat", sanitizeInput, extractUserId, async (req, res) => {
 // ── POST /api/agent/stream ────────────────────────────────────────────────
 // Server-Sent Events streaming endpoint
 router.post("/stream", sanitizeInput, extractUserId, async (req, res) => {
-  const { message, sessionId: clientSessionId } = req.body;
+  const { message, sessionId: clientSessionId, agentId } = req.body;
 
   if (!message?.trim()) {
     return res.status(400).json({ error: "message is required" });
@@ -84,7 +66,10 @@ router.post("/stream", sanitizeInput, extractUserId, async (req, res) => {
   send("session", { sessionId });
 
   try {
-    const agent = buildRequestAgent(sessionId, req.userId);
+    const { agent, config: agentConfig } = await buildRequestAgent(
+      agentId, sessionId, req.userId, 0,
+      (evt) => send("delegation", evt) // delegation callback emits SSE events
+    );
 
     await runAgent({
       agent,
@@ -101,7 +86,7 @@ router.post("/stream", sanitizeInput, extractUserId, async (req, res) => {
       },
     });
 
-    send("done", { sessionId });
+    send("done", { sessionId, agentId: agentConfig.id, agentName: agentConfig.name });
     res.end();
   } catch (err) {
     logger.error("Stream error", { error: err.message });
@@ -127,10 +112,17 @@ router.get("/tools", (req, res) => {
 });
 
 // ── GET /api/agent/agents ─────────────────────────────────────────────────
-// Returns the list of registered specialist agents (non-empty only when
-// MULTI_AGENT_ENABLED=true and the supervisor has been initialised).
-router.get("/agents", (req, res) => {
-  res.json({ agents: listAgents() });
+router.get("/agents", async (req, res) => {
+  const agents = await agentStore.list();
+  res.json({
+    agents: agents.map((a) => ({
+      id: a.id,
+      name: a.name,
+      description: a.description,
+      isDefault: a.isDefault,
+      status: a.status,
+    })),
+  });
 });
 
 // ── GET /api/agent/history/:sessionId ────────────────────────────────────

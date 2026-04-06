@@ -140,3 +140,23 @@ export function getToolsInfo() {
     description: t.description,
   }));
 }
+
+/**
+ * Get tools filtered by name. Unknown names are silently skipped.
+ */
+export function getToolsByNames(names) {
+  const all = getAllTools();
+  const toolMap = new Map(all.map(t => [t.name, t]));
+  return names.filter(name => toolMap.has(name)).map(name => toolMap.get(name));
+}
+
+/**
+ * Get names of all locally registered tools (local + MCP).
+ * Used by the agent CRUD API to show available tools for assignment.
+ */
+export function getLocalToolNames() {
+  return getAllTools().map(t => ({
+    name: t.name,
+    description: t.description,
+  }));
+}

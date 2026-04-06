@@ -21,6 +21,9 @@ import { createToolCallGuard, validateToolCall, validateOutput, guardrailConfig 
 export function createAgent({
   systemPrompt = null,
   tools = null,
+  model = null,        // NEW
+  temperature = null,  // NEW
+  maxTokens = null,    // NEW
   beforeModel = null,
   afterModel = null,
 } = {}) {
@@ -29,9 +32,9 @@ export function createAgent({
   // Bind tools to the LLM
   const llm = new ChatAnthropic({
     apiKey: config.anthropicApiKey,
-    model: config.model,
-    temperature: config.temperature,
-    maxTokens: config.maxTokens,
+    model: model ?? config.model,
+    temperature: temperature ?? config.temperature,
+    maxTokens: maxTokens ?? config.maxTokens,
   }).bindTools(resolvedTools);
 
   const toolNode = new ToolNode(resolvedTools);

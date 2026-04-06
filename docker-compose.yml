@@ -14,12 +14,16 @@ services:
       - CORS_ORIGIN=http://localhost:${FRONTEND_PORT:-3000}
       - REDIS_URL=redis://redis:6379
       - TAVILY_API_KEY=${TAVILY_API_KEY:-}
-      - MULTI_AGENT_ENABLED=${MULTI_AGENT_ENABLED:-false}
       - MCP_SERVERS=${MCP_SERVERS:-}
+      - JANUSGRAPH_URL=ws://janusgraph:8182/gremlin
+      - MAX_DELEGATION_DEPTH=${MAX_DELEGATION_DEPTH:-3}
+      - ENABLE_UI=${ENABLE_UI:-true}
     ports:
       - "${BACKEND_PORT:-3001}:3001"
     depends_on:
       redis:
+        condition: service_healthy
+      janusgraph:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -34,6 +38,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: agent-scaffold-frontend
+    profiles: ["ui"]
     ports:
       - "${FRONTEND_PORT:-3000}:80"
     depends_on:
@@ -55,5 +60,20 @@ services:
       retries: 3
     restart: unless-stopped
 
+  janusgraph:
+    image: janusgraph/janusgraph:latest
+    ports:
+      - "${JANUSGRAPH_PORT:-8182}:8182"
+    volumes:
+      - janusgraph_data:/var/lib/janusgraph
+    healthcheck:
+      test: ["CMD-SHELL", "bin/gremlin.sh -e scripts/empty-sample.groovy 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    restart: unless-stopped
+
 volumes:
   redis_data:
+  janusgraph_data:

@@ -11,8 +11,12 @@ export const config = {
   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3000",
   nodeEnv: process.env.NODE_ENV || "development",
   redisUrl: process.env.REDIS_URL || null,
-  multiAgentEnabled: process.env.MULTI_AGENT_ENABLED === "true",
   tavilyApiKey: process.env.TAVILY_API_KEY || null,
+  janusgraphUrl: process.env.JANUSGRAPH_URL || null,
+  maxDelegationDepth: parseInt(process.env.MAX_DELEGATION_DEPTH || "3"),
+  instanceId: process.env.INSTANCE_ID || null,  // auto-generated if null at startup
+  instanceUrl: process.env.INSTANCE_URL || null, // enables cross-instance federation
+  enableUI: process.env.ENABLE_UI !== "false",   // default true, set to "false" to disable
 };
 
 export function validateConfig() {

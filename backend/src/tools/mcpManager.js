@@ -52,11 +52,9 @@ async function _doRebuild() {
     }
   }
 
-  // Propagate tools to the shared registry and reset the compiled agent
+  // Propagate tools to the shared registry
   const { setMCPTools } = await import("../tools/index.js");
-  const { resetDefaultAgent } = await import("../agents/defaultAgent.js");
   setMCPTools(mcpTools);
-  resetDefaultAgent();
 
   logger.info(`MCP rebuild complete — ${mcpTools.length} total tools across ${_clients.size} servers`);
 }

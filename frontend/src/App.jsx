@@ -2,8 +2,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { useAgent } from "./hooks/useAgent.js";
+import { useAgents } from "./hooks/useAgents.js";
 import { useMCP } from "./hooks/useMCP.js";
 import { api } from "./lib/api.js";
+import { AgentPicker } from "./components/AgentPicker.jsx";
+import { AgentManager } from "./components/AgentManager.jsx";
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
 const SendIcon = () => (
@@ -107,6 +110,20 @@ function MessageBubble({ msg }) {
       }}>
         {!isUser && <BotIcon />}
         <span>{isUser ? "you" : "agent"}</span>
+        {!isUser && msg.delegatedTo && (
+          <span style={{
+            padding: "1px 5px",
+            borderRadius: "4px",
+            background: "rgba(251,191,36,0.1)",
+            border: "1px solid rgba(251,191,36,0.25)",
+            color: "#fbbf24",
+            fontSize: "9px",
+            letterSpacing: "0.06em",
+            textTransform: "none",
+          }}>
+            via {msg.delegatedTo}
+          </span>
+        )}
         <span style={{ opacity: 0.6 }}>{time}</span>
       </div>
 
@@ -744,7 +761,7 @@ function MCPPanel({ servers, mcpTools, loading, error, showPanel, onClose, onAdd
 }
 
 // ─── Sidebar: Session Info ───────────────────────────────────────────────────
-function Sidebar({ sessionId, tools, mcpTools, onClear, onOpenMCP, mcpConnectedCount }) {
+function Sidebar({ sessionId, tools, mcpTools, onClear, onOpenMCP, mcpConnectedCount, agents, selectedAgentId, onSelectAgent, onOpenAgentManager, selectedAgent }) {
   return (
     <div style={{
       width: "220px",
@@ -768,6 +785,29 @@ function Sidebar({ sessionId, tools, mcpTools, onClear, onOpenMCP, mcpConnectedC
         <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", fontFamily: "'IBM Plex Mono', monospace" }}>
           v1.0.0 · enterprise
         </div>
+      </div>
+
+      {/* Agent Picker */}
+      <div>
+        <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "8px", fontFamily: "'IBM Plex Mono', monospace" }}>Agent</div>
+        <AgentPicker
+          agents={agents}
+          selectedAgentId={selectedAgentId}
+          onSelect={onSelectAgent}
+          onManageClick={onOpenAgentManager}
+        />
+        {selectedAgent?.description && (
+          <div style={{
+            marginTop: "6px",
+            fontSize: "10px",
+            fontFamily: "'IBM Plex Mono', monospace",
+            color: "rgba(255,255,255,0.3)",
+            lineHeight: 1.5,
+            wordBreak: "break-word",
+          }}>
+            {selectedAgent.description}
+          </div>
+        )}
       </div>
 
       {/* Session */}
@@ -917,20 +957,29 @@ function Sidebar({ sessionId, tools, mcpTools, onClear, onOpenMCP, mcpConnectedC
 
 // ─── App ─────────────────────────────────────────────────────────────────────
 export default function App() {
-  const { messages, sessionId, isLoading, activeTools, sendMessage, clearConversation, cancelStream } = useAgent();
+  const {
+    agents, selectedAgentId, selectedAgent,
+    selectAgent, createAgent, updateAgent, deleteAgent, cloneAgent,
+    fetchAgents, loading: agentsLoading, error: agentsError,
+  } = useAgents();
+
+  const { messages, sessionId, isLoading, activeTools, sendMessage, clearConversation, cancelStream } = useAgent(selectedAgentId);
   const { servers, mcpTools, loading: mcpLoading, error: mcpError, showPanel, addServer, removeServer, reconnectServer, togglePanel } = useMCP();
   const [input, setInput] = useState("");
   const [tools, setTools] = useState([]);
   const [health, setHealth] = useState(null);
+  const [showAgentManager, setShowAgentManager] = useState(false);
+  const [availableTools, setAvailableTools] = useState([]);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
   const mcpConnectedCount = Object.values(servers).filter((s) => s.status === "connected").length;
 
-  // Load tools & health on mount
+  // Load tools, available tools & health on mount
   useEffect(() => {
     api.getTools().then((d) => setTools(d.tools || [])).catch(() => {});
     api.health().then(setHealth).catch(() => {});
+    api.getAvailableTools().then((d) => setAvailableTools(d.tools || [])).catch(() => {});
   }, []);
 
   // Auto-scroll
@@ -1010,6 +1059,20 @@ export default function App() {
         onReconnect={reconnectServer}
       />
 
+      {/* Agent Manager Panel */}
+      <AgentManager
+        show={showAgentManager}
+        onClose={() => setShowAgentManager(false)}
+        agents={agents}
+        onCreateAgent={createAgent}
+        onUpdateAgent={updateAgent}
+        onDeleteAgent={deleteAgent}
+        onCloneAgent={cloneAgent}
+        availableTools={availableTools}
+        loading={agentsLoading}
+        error={agentsError}
+      />
+
       {/* Body */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <Sidebar
@@ -1019,6 +1082,11 @@ export default function App() {
           onClear={clearConversation}
           onOpenMCP={togglePanel}
           mcpConnectedCount={mcpConnectedCount}
+          agents={agents}
+          selectedAgentId={selectedAgentId}
+          selectedAgent={selectedAgent}
+          onSelectAgent={selectAgent}
+          onOpenAgentManager={() => setShowAgentManager(true)}
         />
 
         {/* Chat area */}

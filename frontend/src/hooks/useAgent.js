@@ -1,16 +1,32 @@
 // src/hooks/useAgent.js
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { api } from "../lib/api.js";
 
 const generateId = () => Math.random().toString(36).slice(2);
 
-export function useAgent() {
+export function useAgent(agentId) {
   const [messages, setMessages] = useState([]);
   const [sessionId, setSessionId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTools, setActiveTools] = useState([]);
   const activeToolsRef = useRef([]);
   const streamRef = useRef(null);
+
+  // Clear conversation whenever the selected agent changes
+  useEffect(() => {
+    if (agentId !== undefined) {
+      // Cancel any in-flight stream first
+      if (streamRef.current) {
+        streamRef.current.cancel();
+        streamRef.current = null;
+      }
+      setMessages([]);
+      setSessionId(null);
+      setActiveTools([]);
+      activeToolsRef.current = [];
+      setIsLoading(false);
+    }
+  }, [agentId]);
 
   const addMessage = useCallback((msg) => {
     setMessages((prev) => [...prev, { id: generateId(), timestamp: Date.now(), ...msg }]);
@@ -59,6 +75,7 @@ export function useAgent() {
       const stream = api.streamChat({
         message: text,
         sessionId: currentSessionId,
+        agentId,
         onEvent: (type, data) => {
           if (type === "session") {
             newSessionId = data.sessionId;
@@ -78,6 +95,20 @@ export function useAgent() {
             setActiveTools(activeToolsRef.current);
           } else if (type === "tool_result") {
             // Tool finished
+          } else if (type === "delegation") {
+            // Delegation events carry { from, to, toName, task }
+            // Attach delegation info to the current placeholder message so the UI can show a badge
+            setMessages((prev) => {
+              const next = [...prev];
+              const idx = next.findIndex((m) => m.id === placeholderId);
+              if (idx !== -1) {
+                next[idx] = {
+                  ...next[idx],
+                  delegatedTo: data.toName || data.to || null,
+                };
+              }
+              return next;
+            });
           }
         },
         onDone: () => {
@@ -105,7 +136,7 @@ export function useAgent() {
             if (idx !== -1) {
               next[idx] = {
                 ...next[idx],
-                content: `⚠️ Error: ${err.message}`,
+                content: `Error: ${err.message}`,
                 isStreaming: false,
                 isError: true,
               };
@@ -120,7 +151,7 @@ export function useAgent() {
 
       streamRef.current = stream;
     },
-    [sessionId, isLoading, addMessage]
+    [sessionId, isLoading, addMessage, agentId]
   );
 
   const clearConversation = useCallback(async () => {
