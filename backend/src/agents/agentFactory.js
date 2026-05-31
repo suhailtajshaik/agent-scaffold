@@ -59,6 +59,19 @@ export function createAgent({
     let finalResponse = response;
     if (afterModel) finalResponse = await afterModel(response);
 
+    // Guardrail: apply validated/clamped tool arguments before the ToolNode
+    // executes them. validateToolCall may cap args (e.g. web_crawl maxDepth /
+    // maxBreadth); this is the only point before execution where the modified
+    // args can take effect, since the ToolNode runs the tool_calls as-is.
+    if (finalResponse.tool_calls?.length) {
+      for (const tc of finalResponse.tool_calls) {
+        const check = validateToolCall(tc.name, tc.args);
+        if (check.modified) {
+          tc.args = check.modified;
+        }
+      }
+    }
+
     return { messages: [finalResponse] };
   }
 
