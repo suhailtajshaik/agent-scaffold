@@ -2,7 +2,6 @@
 import { Router } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { buildRequestAgent } from "../agents/agentCompiler.js";
-import { agentStore } from "../agents/agentStore.js";
 import { runAgent } from "../agents/agentFactory.js";
 import { sessionStore, stateStore } from "../memory/index.js";
 import { sanitizeInput, extractUserId } from "../middleware/index.js";
@@ -109,20 +108,6 @@ router.delete("/sessions/:id", async (req, res) => {
 // ── GET /api/agent/tools ──────────────────────────────────────────────────
 router.get("/tools", (req, res) => {
   res.json({ tools: getToolsInfo() });
-});
-
-// ── GET /api/agent/agents ─────────────────────────────────────────────────
-router.get("/agents", async (req, res) => {
-  const agents = await agentStore.list();
-  res.json({
-    agents: agents.map((a) => ({
-      id: a.id,
-      name: a.name,
-      description: a.description,
-      isDefault: a.isDefault,
-      status: a.status,
-    })),
-  });
 });
 
 // ── GET /api/agent/history/:sessionId ────────────────────────────────────

@@ -181,7 +181,6 @@ Omit `agentId` to use the default agent. Omit `sessionId` to start a new session
 | `GET` | `/api/agent/state/session/:id` | All state for a session |
 | `GET` | `/api/agent/state/user` | State for the authenticated user (requires `x-user-id` header) |
 | `GET` | `/api/agent/tools` | List all registered tools with descriptions |
-| `GET` | `/api/agent/agents` | List agents (legacy endpoint — prefer `/api/agents`) |
 
 ### Health
 
