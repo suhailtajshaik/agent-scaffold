@@ -8,12 +8,10 @@ import { config } from "../config/index.js";
 
 /**
  * Creates a call_remote_agent tool for cross-instance federation.
- * Only available when INSTANCE_URL is configured.
- *
- * @param {object} options
- * @param {function} options.getRemoteInstances - Function that returns list of remote instances from Redis
+ * Only available when INSTANCE_URL is configured. The caller supplies the
+ * target instanceUrl explicitly; there is no automatic instance discovery.
  */
-export function createRemoteAgentTool({ getRemoteInstances }) {
+export function createRemoteAgentTool() {
   return tool(
     async ({ instanceUrl, agentId, task }) => {
       if (!config.instanceUrl) {

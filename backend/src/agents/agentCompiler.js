@@ -103,14 +103,7 @@ export async function buildRequestAgent(
   if (config.instanceUrl) {
     try {
       const { createRemoteAgentTool } = await import("../tools/remoteAgentTool.js");
-      remoteTools = [
-        createRemoteAgentTool({
-          getRemoteInstances: async () => {
-            // TODO: fetch live instance registry from Redis
-            return [];
-          },
-        }),
-      ];
+      remoteTools = [createRemoteAgentTool()];
     } catch (err) {
       logger.warn("Remote agent tool not available", { error: err.message });
     }
