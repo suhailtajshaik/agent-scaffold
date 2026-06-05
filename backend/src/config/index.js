@@ -12,7 +12,6 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || "development",
   redisUrl: process.env.REDIS_URL || null,
   tavilyApiKey: process.env.TAVILY_API_KEY || null,
-  janusgraphUrl: process.env.JANUSGRAPH_URL || null,
   maxDelegationDepth: parseInt(process.env.MAX_DELEGATION_DEPTH || "3"),
   instanceId: process.env.INSTANCE_ID || null,  // auto-generated if null at startup
   instanceUrl: process.env.INSTANCE_URL || null, // enables cross-instance federation

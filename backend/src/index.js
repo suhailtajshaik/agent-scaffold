@@ -12,11 +12,8 @@ import mcpRoutes from "./routes/mcp.js";
 import agentCrudRoutes from "./routes/agentCrud.js";
 import agentMcpRoutes from "./routes/agentMcp.js";
 import toolAssignmentRoutes from "./routes/toolAssignment.js";
-import graphRoutes from "./routes/graphRoutes.js";
 import { getLocalToolNames } from "./tools/index.js";
 import { agentStore } from "./agents/agentStore.js";
-import { initGraph, closeGraph } from "./graph/client.js";
-import { initSchema } from "./graph/schema.js";
 import { shutdownAllAgentMCP } from "./tools/perAgentMCP.js";
 
 const app = express();
@@ -45,7 +42,6 @@ app.use("/api/agents", toolAssignmentRoutes);    // for /:id/tools endpoints
 app.get("/api/tools/available", (req, res) => {  // available tools (no collision)
   res.json({ tools: getLocalToolNames() });
 });
-app.use("/api/graph", graphRoutes);
 
 // ── Optional frontend static serving ─────────────────────────────────────────
 if (config.enableUI) {
@@ -79,7 +75,6 @@ app.use(errorHandler);
 // ── Graceful Shutdown ─────────────────────────────────────────────────────────
 async function shutdown(signal) {
   logger.info(`Received ${signal}, shutting down gracefully`);
-  await closeGraph();
   await shutdownAllAgentMCP();
   process.exit(0);
 }
@@ -90,12 +85,6 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 // ── Start ─────────────────────────────────────────────────────────────────────
 (async () => {
   validateConfig();
-
-  // Initialize JanusGraph (no-op / fallback when JANUSGRAPH_URL is unset)
-  await initGraph(config.janusgraphUrl);
-
-  // Verify schema / run health-check query
-  await initSchema();
 
   // Seed the default agent if no agents exist yet
   await agentStore.seedDefault();
