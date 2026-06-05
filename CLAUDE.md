@@ -33,14 +33,13 @@ UI — no code changes or rebuilds are needed to add or swap agents.
     data formatter, datetime, scoped state) plus per-agent MCP, delegation, and
     remote-agent (federation) tools. Register new tools in `src/tools/index.js`.
   - `src/routes/` — agent chat/stream, agent CRUD, tool assignment, per-agent MCP,
-    graph topology, health.
+    health.
   - `src/memory/` — session + scoped (`session`/`user`/`app`) state stores.
-  - `src/graph/` — JanusGraph topology (optional, graceful fallback).
   - `src/guardrails/`, `src/middleware/`, `src/config/` — guardrails, Express
     middleware, and env-driven configuration.
   - `evals/` — YAML-driven eval harness (`npm run eval`).
 - `frontend/` — React + Vite UI (optional, gated by `ENABLE_UI` / Docker `--profile ui`).
-- `docker-compose.yml` — backend + Redis + JanusGraph (+ frontend under the `ui` profile).
+- `docker-compose.yml` — backend + Redis (+ frontend under the `ui` profile).
 
 ### Key Concepts
 
@@ -50,13 +49,13 @@ UI — no code changes or rebuilds are needed to add or swap agents.
   by `MAX_DELEGATION_DEPTH` (default 3); self-delegation is blocked.
 - **Federation** — with `INSTANCE_URL` set, agents gain `call_remote_agent` to
   reach agents on other instances over HTTP.
-- **Graceful fallbacks** — Redis (→ in-memory), JanusGraph (→ fallback mode),
-  and Tavily-backed web tools all degrade without crashing the system.
+- **Graceful fallbacks** — Redis (→ in-memory) and Tavily-backed web tools
+  all degrade without crashing the system.
 
 ### Common Commands
 
 ```bash
-docker compose up --build              # backend + Redis + JanusGraph
+docker compose up --build              # backend + Redis
 docker compose --profile ui up --build # also start the React UI
 cd backend && npm run dev              # backend with --watch
 cd backend && npm run eval             # run the eval harness

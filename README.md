@@ -9,7 +9,7 @@ A reusable scaffold for building AI agent systems with **LangGraph.js**, **Claud
 cp .env.example .env
 # Edit .env — set ANTHROPIC_API_KEY=sk-ant-...
 
-# 2. Start backend + Redis + JanusGraph (no UI)
+# 2. Start backend + Redis (no UI)
 docker compose up --build
 
 # 3. Or start with the optional React UI
@@ -22,7 +22,7 @@ docker compose --profile ui up --build
 | Health check | http://localhost:3001/health |
 | Frontend (if enabled) | http://localhost:3000 |
 
-A default agent is seeded automatically on first startup. Redis and JanusGraph start alongside the backend with no additional configuration.
+A default agent is seeded automatically on first startup. Redis starts alongside the backend with no additional configuration.
 
 ## Features
 
@@ -31,7 +31,6 @@ A default agent is seeded automatically on first startup. Redis and JanusGraph s
 - **Per-agent MCP server management** — connect any [Model Context Protocol](https://modelcontextprotocol.io) server to individual agents at runtime
 - **Agent-to-agent delegation** — agents call each other using the `delegate_to_agent` tool with configurable depth limits
 - **Cross-instance federation** — agents on different servers communicate via HTTP when `INSTANCE_URL` is configured
-- **JanusGraph topology** — relationship graph for agents, tools, MCP servers, and instances with graceful fallback when unavailable
 - **Session memory** — full message persistence per session (Redis-backed with in-memory fallback)
 - **Scoped state** — `session`, `user`, and `app` scoped key-value storage accessible to agents and via REST
 - **Guardrails** — input validation, output filtering, tool call limits, delegation depth limits, and blocked domains
@@ -53,12 +52,12 @@ A default agent is seeded automatically on first startup. Redis and JanusGraph s
                         │                                  │
                         │  Agents ◀──delegate──▶ Agents    │
                         │  Agents ──HTTP──▶ Remote agents  │
-                        └───────────┬─────────────┬────────┘
-                                    │             │
-                               Redis            JanusGraph
-                          (agent configs,      (relationship
-                           sessions, state,     topology)
-                           MCP configs)
+                        └───────────────┬──────────────────┘
+                                        │
+                                     Redis
+                                (agent configs,
+                                 sessions, state,
+                                 MCP configs)
 ```
 
 Each incoming request compiles a fresh agent from the stored config. Tool sets, MCP connections, state tools, and delegation context are assembled per-request — no caching that would leave stale agents after a config change.
@@ -183,13 +182,6 @@ Omit `agentId` to use the default agent. Omit `sessionId` to start a new session
 | `GET` | `/api/agent/state/user` | State for the authenticated user (requires `x-user-id` header) |
 | `GET` | `/api/agent/tools` | List all registered tools with descriptions |
 | `GET` | `/api/agent/agents` | List agents (legacy endpoint — prefer `/api/agents`) |
-
-### Graph Topology
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/graph/topology` | Full graph: all vertices and edges |
-| `GET` | `/api/graph/agent/:id/dependencies` | Tool and delegation targets for one agent |
 
 ### Health
 
@@ -360,25 +352,6 @@ curl -X POST http://localhost:3001/api/agent/chat \
 
 Agents avoid calling themselves (same `instanceUrl` is rejected). Timeout is 60 seconds per remote call.
 
-## JanusGraph
-
-JanusGraph stores the relationship topology of the agent system:
-
-- Agent → Tool (which tools an agent uses)
-- Agent → Agent (delegation relationships)
-- Agent → MCP (which MCP servers an agent connects to)
-- Agent → Instance (which instance an agent lives on)
-
-This enables graph queries such as "what does this agent depend on?" via `GET /api/graph/agent/:id/dependencies`.
-
-**JanusGraph is optional.** When `JANUSGRAPH_URL` is not set or the connection fails, the graph layer enters fallback mode. All topology endpoints return `{ "fallback": true }` and the rest of the system continues operating normally via Redis.
-
-Docker Compose starts JanusGraph automatically. For local development without Docker:
-
-```bash
-JANUSGRAPH_URL=ws://localhost:8182/gremlin
-```
-
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -391,7 +364,6 @@ JANUSGRAPH_URL=ws://localhost:8182/gremlin
 | `FRONTEND_PORT` | `3000` | Frontend port (when UI profile is active) |
 | `NODE_ENV` | `production` | Node environment |
 | `REDIS_URL` | *(none)* | Redis connection string — enables persistent storage. Falls back to in-memory when unset. |
-| `JANUSGRAPH_URL` | *(none)* | JanusGraph WebSocket URL — enables graph topology. Falls back gracefully when unset. |
 | `ENABLE_UI` | `true` | Set to `false` to disable the frontend on this instance |
 | `MAX_DELEGATION_DEPTH` | `3` | Maximum hops for agent-to-agent delegation |
 | `INSTANCE_URL` | *(none)* | This instance's public URL — enables cross-instance federation via `call_remote_agent` |
@@ -412,15 +384,13 @@ JANUSGRAPH_URL=ws://localhost:8182/gremlin
 Services:
   backend      — Node.js API server (always started)
   redis        — Redis 7 (always started, health-checked)
-  janusgraph   — JanusGraph graph database (always started, health-checked)
   frontend     — React UI (started only with --profile ui)
 
 Volumes:
   redis_data      — Redis AOF persistence
-  janusgraph_data — JanusGraph data persistence
 ```
 
-Backend waits for Redis and JanusGraph to pass health checks before starting. Frontend waits for the backend health check.
+Backend waits for Redis to pass its health check before starting. Frontend waits for the backend health check.
 
 **Without UI (API only):**
 ```bash
