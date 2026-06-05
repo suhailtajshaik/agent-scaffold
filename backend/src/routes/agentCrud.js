@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { agentStore } from "../agents/agentStore.js";
-import { logger } from "../config/logger.js";
+import { sendError } from "./httpErrors.js";
 
 const router = Router();
 
@@ -17,8 +17,7 @@ router.get("/", async (req, res) => {
     }));
     res.json({ agents: summary });
   } catch (err) {
-    logger.error("List agents failed", { error: err.message });
-    res.status(500).json({ error: err.message });
+    sendError(res, err, "List agents failed");
   }
 });
 
@@ -29,8 +28,7 @@ router.get("/:id", async (req, res) => {
     if (!agent) return res.status(404).json({ error: "Agent not found" });
     res.json({ agent });
   } catch (err) {
-    logger.error("Get agent failed", { error: err.message });
-    res.status(500).json({ error: err.message });
+    sendError(res, err, "Get agent failed");
   }
 });
 
@@ -40,9 +38,7 @@ router.post("/", async (req, res) => {
     const agent = await agentStore.create(req.body);
     res.status(201).json({ agent });
   } catch (err) {
-    logger.error("Create agent failed", { error: err.message });
-    const status = err.message.includes("required") || err.message.includes("unique") ? 400 : 500;
-    res.status(status).json({ error: err.message });
+    sendError(res, err, "Create agent failed");
   }
 });
 
@@ -52,10 +48,7 @@ router.put("/:id", async (req, res) => {
     const agent = await agentStore.update(req.params.id, req.body);
     res.json({ agent });
   } catch (err) {
-    logger.error("Update agent failed", { error: err.message });
-    const status = err.message.includes("not found") ? 404
-      : err.message.includes("required") || err.message.includes("unique") ? 400 : 500;
-    res.status(status).json({ error: err.message });
+    sendError(res, err, "Update agent failed");
   }
 });
 
@@ -65,9 +58,7 @@ router.patch("/:id", async (req, res) => {
     const agent = await agentStore.patch(req.params.id, req.body);
     res.json({ agent });
   } catch (err) {
-    logger.error("Patch agent failed", { error: err.message });
-    const status = err.message.includes("not found") ? 404 : 400;
-    res.status(status).json({ error: err.message });
+    sendError(res, err, "Patch agent failed");
   }
 });
 
@@ -77,10 +68,7 @@ router.delete("/:id", async (req, res) => {
     await agentStore.delete(req.params.id);
     res.json({ deleted: true, id: req.params.id });
   } catch (err) {
-    logger.error("Delete agent failed", { error: err.message });
-    const status = err.message.includes("not found") ? 404
-      : err.message.includes("Cannot delete") ? 400 : 500;
-    res.status(status).json({ error: err.message });
+    sendError(res, err, "Delete agent failed");
   }
 });
 
@@ -97,8 +85,7 @@ router.post("/:id/clone", async (req, res) => {
     const agent = await agentStore.create(cloneData);
     res.status(201).json({ agent });
   } catch (err) {
-    logger.error("Clone agent failed", { error: err.message });
-    res.status(400).json({ error: err.message });
+    sendError(res, err, "Clone agent failed");
   }
 });
 

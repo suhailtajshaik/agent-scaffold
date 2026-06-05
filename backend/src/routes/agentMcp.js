@@ -8,8 +8,8 @@ import {
   getAgentMCPTools,
 } from "../tools/perAgentMCP.js";
 import { agentStore } from "../agents/agentStore.js";
-import { logger } from "../config/logger.js";
 import { isValidServerName, validateServerConfig } from "./mcpValidation.js";
+import { sendError } from "./httpErrors.js";
 
 const router = Router();
 
@@ -24,8 +24,7 @@ router.get("/:id/mcp/servers", async (req, res) => {
 
     res.json({ agentId: req.params.id, config, status });
   } catch (err) {
-    logger.error("Get agent MCP servers failed", { error: err.message });
-    res.status(500).json({ error: err.message });
+    sendError(res, err, "Get agent MCP servers failed");
   }
 });
 
@@ -48,8 +47,7 @@ router.post("/:id/mcp/servers", async (req, res) => {
     const status = getAgentMCPStatus(req.params.id);
     res.json({ agentId: req.params.id, status });
   } catch (err) {
-    logger.error("Add agent MCP server failed", { error: err.message });
-    res.status(500).json({ error: err.message });
+    sendError(res, err, "Add agent MCP server failed");
   }
 });
 
@@ -62,8 +60,7 @@ router.delete("/:id/mcp/servers/:name", async (req, res) => {
     await removeAgentMCPServer(req.params.id, req.params.name);
     res.json({ removed: true, agentId: req.params.id, serverName: req.params.name });
   } catch (err) {
-    logger.error("Remove agent MCP server failed", { error: err.message });
-    res.status(err.message.includes("not found") ? 404 : 500).json({ error: err.message });
+    sendError(res, err, "Remove agent MCP server failed");
   }
 });
 
@@ -77,8 +74,7 @@ router.post("/:id/mcp/servers/:name/reconnect", async (req, res) => {
     const status = getAgentMCPStatus(req.params.id);
     res.json({ agentId: req.params.id, status });
   } catch (err) {
-    logger.error("Reconnect agent MCP server failed", { error: err.message });
-    res.status(500).json({ error: err.message });
+    sendError(res, err, "Reconnect agent MCP server failed");
   }
 });
 
