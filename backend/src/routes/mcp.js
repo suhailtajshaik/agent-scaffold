@@ -8,10 +8,9 @@ import {
   getMCPToolsWithSource,
 } from "../tools/mcpManager.js";
 import { logger } from "../config/logger.js";
+import { isValidServerName, validateServerConfig } from "./mcpValidation.js";
 
 const router = Router();
-
-const VALID_SERVER_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
 
 // GET /api/mcp/servers — list all servers with their status and tool lists
 router.get("/servers", (req, res) => {
@@ -22,19 +21,12 @@ router.get("/servers", (req, res) => {
 router.post("/servers", async (req, res) => {
   const { name, config } = req.body;
 
-  if (!name?.trim() || !VALID_SERVER_NAME.test(name.trim())) {
+  if (!isValidServerName(name)) {
     return res.status(400).json({ error: "name must be 1-64 alphanumeric, dash, or underscore characters" });
   }
-  if (!config || typeof config !== "object") {
-    return res.status(400).json({ error: "config is required and must be an object" });
-  }
-
-  // Transport-specific required field validation
-  if (config.transport === "stdio" && !config.command) {
-    return res.status(400).json({ error: "command is required for stdio transport" });
-  }
-  if ((config.transport === "sse" || config.transport === "http") && !config.url) {
-    return res.status(400).json({ error: "url is required for sse/http transport" });
+  const configError = validateServerConfig(config);
+  if (configError) {
+    return res.status(400).json({ error: configError });
   }
 
   try {
@@ -50,7 +42,7 @@ router.post("/servers", async (req, res) => {
 // DELETE /api/mcp/servers/:name — remove a server and trigger hot-reload
 router.delete("/servers/:name", async (req, res) => {
   const { name } = req.params;
-  if (!VALID_SERVER_NAME.test(name)) {
+  if (!isValidServerName(name)) {
     return res.status(400).json({ error: "Invalid server name" });
   }
   try {
@@ -66,7 +58,7 @@ router.delete("/servers/:name", async (req, res) => {
 // POST /api/mcp/servers/:name/reconnect — force-reconnect a specific server
 router.post("/servers/:name/reconnect", async (req, res) => {
   const { name } = req.params;
-  if (!VALID_SERVER_NAME.test(name)) {
+  if (!isValidServerName(name)) {
     return res.status(400).json({ error: "Invalid server name" });
   }
   try {
