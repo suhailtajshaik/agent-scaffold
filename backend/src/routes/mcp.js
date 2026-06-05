@@ -7,8 +7,8 @@ import {
   getMCPServersStatus,
   getMCPToolsWithSource,
 } from "../tools/mcpManager.js";
-import { logger } from "../config/logger.js";
 import { isValidServerName, validateServerConfig } from "./mcpValidation.js";
+import { sendError } from "./httpErrors.js";
 
 const router = Router();
 
@@ -33,9 +33,8 @@ router.post("/servers", async (req, res) => {
     await addMCPServer(name.trim(), config);
     res.json(getMCPServersStatus());
   } catch (err) {
-    logger.error("Failed to add MCP server", { name, error: err.message });
     // Return current status alongside the error — other servers may still be healthy
-    res.status(500).json({ error: err.message, ...getMCPServersStatus() });
+    sendError(res, err, "Failed to add MCP server", getMCPServersStatus());
   }
 });
 
@@ -49,9 +48,7 @@ router.delete("/servers/:name", async (req, res) => {
     await removeMCPServer(name);
     res.json({ removed: true, name });
   } catch (err) {
-    logger.error("Failed to remove MCP server", { name, error: err.message });
-    const statusCode = err.message.includes("not found") ? 404 : 500;
-    res.status(statusCode).json({ error: err.message });
+    sendError(res, err, "Failed to remove MCP server");
   }
 });
 
@@ -65,9 +62,7 @@ router.post("/servers/:name/reconnect", async (req, res) => {
     await reconnectMCPServer(name);
     res.json(getMCPServersStatus());
   } catch (err) {
-    logger.error("Failed to reconnect MCP server", { name, error: err.message });
-    const statusCode = err.message.includes("not found") ? 404 : 500;
-    res.status(statusCode).json({ error: err.message });
+    sendError(res, err, "Failed to reconnect MCP server");
   }
 });
 

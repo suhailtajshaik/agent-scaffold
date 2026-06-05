@@ -2,7 +2,7 @@ import { Router } from "express";
 import { agentStore } from "../agents/agentStore.js";
 import { getLocalToolNames } from "../tools/index.js";
 import { getAgentMCPTools } from "../tools/perAgentMCP.js";
-import { logger } from "../config/logger.js";
+import { sendError } from "./httpErrors.js";
 
 const router = Router();
 
@@ -28,8 +28,7 @@ router.get("/:id/tools", async (req, res) => {
       mcpTools,
     });
   } catch (err) {
-    logger.error("Get agent tools failed", { error: err.message });
-    res.status(500).json({ error: err.message });
+    sendError(res, err, "Get agent tools failed");
   }
 });
 
@@ -48,8 +47,7 @@ router.put("/:id/tools", async (req, res) => {
     const agent = await agentStore.patch(req.params.id, { tools });
     res.json({ agent });
   } catch (err) {
-    logger.error("Set agent tools failed", { error: err.message });
-    res.status(400).json({ error: err.message });
+    sendError(res, err, "Set agent tools failed");
   }
 });
 
